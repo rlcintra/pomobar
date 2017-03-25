@@ -32,7 +32,8 @@ main = do
 newTimer :: IO Timer
 newTimer = do
   thread <- newEmptyMVar
-  state <- newMVar (TimerState Terminated 0 undefined thread)
+  now <- getCurrentTime
+  state <- newMVar (TimerState Terminated 0 now thread)
   return $ Timer state
 
 startTimer :: Timer -> Int -> IO ()
@@ -133,11 +134,13 @@ startDBus :: Timer -> IO ()
 startDBus timer@(Timer mvarState) = do
   client <- connectSession
   _ <- requestName client "org.pomobar" []
+  timerSwitchState <- newMVar 0
   export client "/org/pomobar"
     [
       autoMethod "org.Pomobar" "startTimer" dbusStart,
       autoMethod "org.Pomobar" "pauseResumeTimer" dbusPauseResume,
-      autoMethod "org.Pomobar" "timerAddMin" dbusTimerAdd
+      autoMethod "org.Pomobar" "timerAddMin" dbusTimerAdd,
+      autoMethod "org.Pomobar" "startTimerSwitch" (dbusStartTimerSwitch timerSwitchState)
     ]
   where dbusStart :: Int16 -> IO ()
         dbusStart durationMin = startTimer timer $ fromIntegral durationMin * 60
@@ -149,4 +152,11 @@ startDBus timer@(Timer mvarState) = do
             _       -> return ()
         dbusTimerAdd :: Int16 -> IO()
         dbusTimerAdd = timerAdd timer . fromIntegral
-
+        dbusStartTimerSwitch :: MVar Int -> [Int16] -> IO ()
+        dbusStartTimerSwitch switchState xs = do
+          now <- getCurrentTime
+          state <- readMVar mvarState
+          i <- if (diffUTCTime now (started state)) > 1.0
+                 then swapMVar switchState 0 >> return 0
+                 else modifyMVar switchState (\x -> return (x+1,x+1))
+          startTimer timer $ (60 *) $ fromIntegral $ (cycle xs) !! i
