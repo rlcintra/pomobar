@@ -17,7 +17,7 @@ data TimerState = TimerState {
   refreshThread :: MVar ThreadId
 }
 
-data TimerStatus = Running | Paused | Terminated
+data TimerStatus = Running | Paused | Terminated deriving Eq
 
 data Timer = Timer (MVar TimerState)
 
@@ -59,6 +59,31 @@ pauseTimer (Timer mvarState) = do
       putMVar mvarState newState
     _ -> putMVar mvarState state
 
+-- |Add minutes to the timer.
+timerAdd :: Timer -> Int -> IO ()
+timerAdd timer@(Timer mvarState) x = do
+  state <- takeMVar mvarState
+  now <- getCurrentTime
+  let diffSec = x * 60
+  let remaining = calculateRemaining now state
+  let newRemaining = remaining + diffSec
+  if newRemaining < 0 && ((status state) /= Terminated)
+    then putMVar mvarState state
+    else do
+      let newState = state { duration = (duration state) + diffSec }
+      case (status newState) of
+        Running    -> do
+          takeMVar (refreshThread newState) >>= killThread
+          rtID <- forkIO $ timerRefreshThread timer
+          putMVar (refreshThread newState) rtID
+          putMVar mvarState newState
+        Paused     -> do
+          putStrLn $ prettify newRemaining Paused
+          putMVar mvarState newState
+        Terminated -> do
+          putMVar mvarState newState
+          startTimer timer diffSec
+
 resumeTimer :: Timer -> IO ()
 resumeTimer timer@(Timer mvarState) = do
   state <- readMVar mvarState
@@ -70,7 +95,7 @@ terminateTimer :: Timer -> IO ()
 terminateTimer (Timer mvarState) = do
   state <- takeMVar mvarState
   putMVar mvarState $ state { status = Terminated }
-  putStrLn "<fc=white,darkred> 0 </fc>"
+  putStrLn "<fc=white,darkred>00</fc>"
   -- TODO make it "blink"
 
 timerRefreshThread :: Timer -> IO ()
@@ -111,7 +136,8 @@ startDBus timer@(Timer mvarState) = do
   export client "/org/pomobar"
     [
       autoMethod "org.Pomobar" "startTimer" dbusStart,
-      autoMethod "org.Pomobar" "pauseResumeTimer" dbusPauseResume
+      autoMethod "org.Pomobar" "pauseResumeTimer" dbusPauseResume,
+      autoMethod "org.Pomobar" "timerAddMin" dbusTimerAdd
     ]
   where dbusStart :: Int16 -> IO ()
         dbusStart durationMin = startTimer timer $ fromIntegral durationMin * 60
@@ -121,3 +147,6 @@ startDBus timer@(Timer mvarState) = do
             Running -> pauseTimer timer
             Paused  -> resumeTimer timer
             _       -> return ()
+        dbusTimerAdd :: Int16 -> IO()
+        dbusTimerAdd = timerAdd timer . fromIntegral
+
