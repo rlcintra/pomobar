@@ -27,8 +27,9 @@ data ColourConfig = ColourConfig {
   runningFgColour     :: Maybe Colour,
   pausedFgColour      :: Maybe Colour,
   terminatingFgColour :: Maybe Colour,
-  terminatedFgColour  :: Maybe Colour,
+  terminatedFg1Colour :: Maybe Colour,
   terminatedBg1Colour :: Maybe Colour,
+  terminatedFg2Colour :: Maybe Colour,
   terminatedBg2Colour :: Maybe Colour,
   terminatedBgDelay   :: Maybe Int
 
@@ -41,7 +42,8 @@ defaultColorConfig = ColourConfig
                        (Just "orange")
                        (Just "white")
                        (Just "darkred")
-                       Nothing -- (Just "yellow")
+                       (Just "red")
+                       (Just "yellow")
                        (Just 500000)         -- 0.5 seconds
 
 main :: IO ()
@@ -119,7 +121,7 @@ terminateTimer :: Timer -> IO ()
 terminateTimer (Timer mvarState colourConfig) = do
   state <- takeMVar mvarState
   putMVar mvarState $ state { status = Terminated }
-  forM_ [0,(-1)..(-10)] blink
+  forM_ [0,(-1)..(-20)] blink
   where blink x = do
           putStrLn $ formatOutput x Terminated colourConfig
           threadDelay $ delay $ terminatedBgDelay colourConfig
@@ -141,22 +143,19 @@ timerRefreshThread timer@(Timer mvarState colourConfig) = do
                     | otherwise     = ((durDiff `rem` 60) + 1) * 1000000
 
 formatOutput :: Int -> TimerStatus -> ColourConfig -> String
-formatOutput x s c = xmobarString (printf "%02d" number) (colour s) (bgColour s) where
+formatOutput x s c = xmobarString (printf "%02d" number) (fgColour s) (bgColour s) where
   number :: Int
   number
     | x >= 60   = floor (fromIntegral x / 60)
     | x < 0     = 0
     | otherwise = x
-  colour Paused = pausedFgColour c
-  colour Running
+  fgColour Paused = pausedFgColour c
+  fgColour Running
     | x >= 60   = runningFgColour c
     | otherwise = terminatingFgColour c
-  colour Terminated = terminatedFgColour c
+  fgColour Terminated = if x `rem` 2 == 0 then terminatedFg1Colour c else terminatedFg2Colour c
   bgColour Terminated = if x `rem` 2 == 0 then terminatedBg1Colour c else terminatedBg2Colour c
   bgColour _          = Nothing
-
-waitForever :: IO ()
-waitForever = forever $ threadDelay maxBound
 
 calculateRemaining :: UTCTime -> TimerState -> Int
 calculateRemaining time state = (duration state) - round (diffUTCTime time (started state))
@@ -197,3 +196,6 @@ xmobarString s Nothing _ = s
 xmobarString s (Just fg) bg = "<fc=" ++ fg ++ stringBg bg ++ ">" ++ s ++ "</fc>"
   where stringBg Nothing  = ""
         stringBg (Just c) = "," ++ c
+
+waitForever :: IO ()
+waitForever = forever $ threadDelay maxBound
