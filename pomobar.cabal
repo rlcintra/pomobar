@@ -13,20 +13,23 @@ build-type:          Simple
 extra-source-files:  README.md
 cabal-version:       >=1.10
 
--- library
---   hs-source-dirs:      src
---   exposed-modules:     Lib
---   build-depends:       base >= 4.7 && < 5
---   default-language:    Haskell2010
-
-executable pomobar
+library
   hs-source-dirs:      src
-  main-is:             Pomobar.hs
-  ghc-options:         -threaded -rtsopts -with-rtsopts=-N -main-is Pomobar
-  build-depends:       base
+  exposed-modules:     Pomobar
+  build-depends:       base >= 4.7 && < 5
                      , dbus
                      , libxml-sax
                      , time
+  default-language:    Haskell2010
+
+executable pomobar
+  hs-source-dirs:      app
+  main-is:             Main.hs
+  ghc-options:         -threaded -rtsopts -with-rtsopts=-N
+  build-depends:       base
+                     , pomobar
+                     , optparse-applicative
+
   default-language:    Haskell2010
 
 -- test-suite pomobar-test

@@ -1,6 +1,12 @@
 {-# LANGUAGE OverloadedStrings #-}
 
-module Pomobar where
+module Pomobar
+  (
+    Colour,
+    ColourConfig (..),
+    defaultColourConfig,
+    initialise
+  ) where
 
 import Control.Concurrent
 import Control.Monad
@@ -35,21 +41,21 @@ data ColourConfig = ColourConfig {
 
 }
 
-defaultColorConfig :: ColourConfig
-defaultColorConfig = ColourConfig
+defaultColourConfig :: ColourConfig
+defaultColourConfig = ColourConfig
                        (Just "green")
                        (Just "#4682B4")
                        (Just "orange")
-                       (Just "white")
-                       (Just "darkred")
+                       (Just "red")
+                       (Nothing)
                        (Just "red")
                        (Just "yellow")
                        (Just 500000)         -- 0.5 seconds
 
-main :: IO ()
-main = do
+initialise :: ColourConfig -> IO ()
+initialise colourConfig = do
   hSetBuffering stdout LineBuffering
-  timer <- newTimer defaultColorConfig
+  timer <- newTimer colourConfig
   startDBus timer
   putStrLn "Pb"
   waitForever
