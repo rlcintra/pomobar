@@ -4,46 +4,43 @@ import Pomobar
 import Options.Applicative
 import Data.Semigroup ((<>))
 
-parseColours :: Parser ColourConfig
-parseColours = ColourConfig
-             <$> option reader (long "runningFgColour"
-                                   <> (value $ runningFgColour defaultColourConfig)
+parseColours :: Parser TimerConfig
+parseColours = TimerConfig
+             <$> option cReader (long "runningFgColour"
+                                   <> (value $ runningFgColour defaultTimerConfig)
                                    <> help "FG running colour")
-             <*> option reader (long "pausedFgColour"
-                                   <> (value $ pausedFgColour defaultColourConfig)
+             <*> option cReader (long "pausedFgColour"
+                                   <> (value $ pausedFgColour defaultTimerConfig)
                                    <> help "FG paused colour")
-             <*> option reader (long "terminatingFgColour"
-                                   <> (value $ terminatingFgColour defaultColourConfig)
+             <*> option cReader (long "terminatingFgColour"
+                                   <> (value $ terminatingFgColour defaultTimerConfig)
                                    <> help "FG terminating colour")
-             <*> option reader (long "terminatedFg1Colour"
-                                   <> (value $ terminatedFg1Colour defaultColourConfig)
+             <*> option cReader (long "terminatedFg1Colour"
+                                   <> (value $ terminatedFg1Colour defaultTimerConfig)
                                    <> help "FG1 terminated colour")
-             <*> option reader (long "terminatedBg1Colour"
-                                   <> (value $ terminatedBg1Colour defaultColourConfig)
+             <*> option cReader (long "terminatedBg1Colour"
+                                   <> (value $ terminatedBg1Colour defaultTimerConfig)
                                    <> help "BG1 terminated colour")
-             <*> option reader (long "terminatedFg2Colour"
-                                   <> (value $ terminatedFg2Colour defaultColourConfig)
+             <*> option cReader (long "terminatedFg2Colour"
+                                   <> (value $ terminatedFg2Colour defaultTimerConfig)
                                    <> help "FG2 terminated colour")
-             <*> option reader (long "terminatedBg2Colour"
-                                   <> (value $ terminatedBg2Colour defaultColourConfig)
+             <*> option cReader (long "terminatedBg2Colour"
+                                   <> (value $ terminatedBg2Colour defaultTimerConfig)
                                    <> help "BG2 terminated colour")
              <*> option auto (long "terminatedBlinkRate"
-                                   <> (value $ terminatedBgDelay defaultColourConfig)
+                                   <> (value $ terminatedBgDelay defaultTimerConfig)
                                    <> help "Terminated blink rate in nanoseconds")
-             where reader = eitherReader (\s -> if s == "" then Right Nothing else Right (Just s))
+             <*> option sReader (long "terminatedShellCmd"
+                                   <> (value $ terminatedShellCmd defaultTimerConfig)
+                                   <> help "Shell command to be executed and timer terminates")
+             where cReader = eitherReader (\s -> if s == "" then Right Nothing else Right (Just s))
+                   sReader = eitherReader (\s -> if s == "" then Right Nothing else Right (Just s))
+
+
 
 main :: IO ()
-main = do
-  config <- execParser opts
-  initialise $ sanatiseColourConfig config
-  where
-    opts = info (parseColours <**> helper)
-      ( fullDesc
-     <> progDesc "Creates a pomodoro timer."
-     <> header "pomobar - A customisable pomodoro timer for Xmonad" )
-
-sanatiseColourConfig :: ColourConfig -> ColourConfig
-sanatiseColourConfig (ColourConfig c1 c2 c3 c4 c5 c6 c7 d) =
-  ColourConfig (f c1) (f c2) (f c3) (f c4) (f c5) (f c6) (f c7) d
-  where f (Just "") = Nothing
-        f c         = c
+main = initialise =<< execParser opts
+       where opts = info (parseColours <**> helper)
+                      (fullDesc
+                       <> progDesc "Creates a pomodoro timer."
+                       <> header "pomobar - A customisable pomodoro timer for Xmonad") 

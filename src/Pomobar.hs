@@ -3,8 +3,8 @@
 module Pomobar
   (
     Colour,
-    ColourConfig (..),
-    defaultColourConfig,
+    TimerConfig (..),
+    defaultTimerConfig,
     initialise
   ) where
 
@@ -15,6 +15,7 @@ import Data.Time.Clock
 import DBus.Client
 import Text.Printf (printf)
 import System.IO (hSetBuffering, stdout, BufferMode(..))
+import System.Process (spawnCommand)
 
 data TimerState = TimerState {
   status        :: TimerStatus,
@@ -25,11 +26,11 @@ data TimerState = TimerState {
 
 data TimerStatus = Running | Paused | Terminated deriving Eq
 
-data Timer = Timer (MVar TimerState) ColourConfig
+data Timer = Timer (MVar TimerState) TimerConfig
 
 type Colour = String
 
-data ColourConfig = ColourConfig {
+data TimerConfig = TimerConfig {
   runningFgColour     :: Maybe Colour,
   pausedFgColour      :: Maybe Colour,
   terminatingFgColour :: Maybe Colour,
@@ -37,35 +38,36 @@ data ColourConfig = ColourConfig {
   terminatedBg1Colour :: Maybe Colour,
   terminatedFg2Colour :: Maybe Colour,
   terminatedBg2Colour :: Maybe Colour,
-  terminatedBgDelay   :: Maybe Int
-
+  terminatedBgDelay   :: Maybe Int,
+  terminatedShellCmd  :: Maybe String
 }
 
-defaultColourConfig :: ColourConfig
-defaultColourConfig = ColourConfig
+defaultTimerConfig :: TimerConfig
+defaultTimerConfig = TimerConfig
                        (Just "green")
                        (Just "#4682B4")
                        (Just "orange")
                        (Just "red")
-                       (Nothing)
+                       Nothing
                        (Just "red")
                        (Just "yellow")
                        (Just 500000)         -- 0.5 seconds
+                       Nothing
 
-initialise :: ColourConfig -> IO ()
-initialise colourConfig = do
+initialise :: TimerConfig -> IO ()
+initialise timerConfig = do
   hSetBuffering stdout LineBuffering
-  timer <- newTimer colourConfig
+  timer <- newTimer timerConfig
   startDBus timer
   putStrLn "Pb"
   waitForever
 
-newTimer :: ColourConfig -> IO Timer
-newTimer colourConfig = do
+newTimer :: TimerConfig -> IO Timer
+newTimer timerConfig = do
   thread <- newEmptyMVar
   now <- getCurrentTime
   state <- newMVar (TimerState Terminated 0 now thread)
-  return $ Timer state colourConfig
+  return $ Timer state timerConfig
 
 startTimer :: Timer -> Int -> IO ()
 startTimer timer@(Timer mvarState _) dur = do
@@ -79,7 +81,7 @@ startTimer timer@(Timer mvarState _) dur = do
         tryKillThread Nothing = return ()
 
 pauseTimer :: Timer -> IO ()
-pauseTimer (Timer mvarState colourConfig) = do
+pauseTimer (Timer mvarState timerConfig) = do
   state <- takeMVar mvarState
   case (status state) of
     Running -> do
@@ -87,13 +89,13 @@ pauseTimer (Timer mvarState colourConfig) = do
       takeMVar (refreshThread state) >>= killThread
       let remaining = calculateRemaining now state
       let newState = state { status = Paused, duration = remaining }
-      putStrLn $ formatOutput remaining (status newState) colourConfig
+      putStrLn $ formatOutput remaining (status newState) timerConfig
       putMVar mvarState newState
     _ -> putMVar mvarState state
 
 -- |Add minutes to the timer.
 timerAdd :: Timer -> Int -> IO ()
-timerAdd timer@(Timer mvarState colourConfig) x = do
+timerAdd timer@(Timer mvarState timerConfig) x = do
   state <- takeMVar mvarState
   now <- getCurrentTime
   let diffSec = x * 60
@@ -110,7 +112,7 @@ timerAdd timer@(Timer mvarState colourConfig) x = do
           putMVar (refreshThread newState) rtID
           putMVar mvarState newState
         Paused     -> do
-          putStrLn $ formatOutput newRemaining Paused colourConfig
+          putStrLn $ formatOutput newRemaining Paused timerConfig
           putMVar mvarState newState
         Terminated -> do
           putMVar mvarState newState
@@ -124,31 +126,34 @@ resumeTimer timer@(Timer mvarState _) = do
     _      -> return ()
 
 terminateTimer :: Timer -> IO ()
-terminateTimer (Timer mvarState colourConfig) = do
+terminateTimer (Timer mvarState timerConfig) = do
   state <- takeMVar mvarState
   putMVar mvarState $ state { status = Terminated }
+  executeCmd $ terminatedShellCmd timerConfig
   forM_ [0,(-1)..(-20)] blink
   where blink x = do
-          putStrLn $ formatOutput x Terminated colourConfig
-          threadDelay $ delay $ terminatedBgDelay colourConfig
+          putStrLn $ formatOutput x Terminated timerConfig
+          threadDelay $ delay $ terminatedBgDelay timerConfig
         delay Nothing  = 0
         delay (Just x) = x
+        executeCmd Nothing    = return ()
+        executeCmd (Just cmd) = spawnCommand cmd >> return ()
 
 timerRefreshThread :: Timer -> IO ()
-timerRefreshThread timer@(Timer mvarState colourConfig) = do
+timerRefreshThread timer@(Timer mvarState timerConfig) = do
   state <- readMVar mvarState
   now <- getCurrentTime
   let durDiff = calculateRemaining now state
   if durDiff <= 0
     then terminateTimer timer
-    else do putStrLn $ formatOutput durDiff (status state) colourConfig
+    else do putStrLn $ formatOutput durDiff (status state) timerConfig
             threadDelay $ delay durDiff
             timerRefreshThread timer
             where delay durDiff
                     | durDiff <= 60 = 1000000
                     | otherwise     = ((durDiff `rem` 60) + 1) * 1000000
 
-formatOutput :: Int -> TimerStatus -> ColourConfig -> String
+formatOutput :: Int -> TimerStatus -> TimerConfig -> String
 formatOutput x s c = xmobarString (printf "%02d" number) (fgColour s) (bgColour s) where
   number :: Int
   number
