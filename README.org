@@ -1,0 +1,96 @@
+* Pomobar
+
+Pomobar is a customisable pomodoro timer for Xmobar. It provides the following features:
+
+- Timer control over D-Bus
+- Colour customisation
+- Optional shell command execution on timer termination
+
+** Building
+
+Pomobar is built by using Stack. After cloning the repository, run `stack build`.
+
+** Installing
+
+You can download the binary straight from the GitLab [[https://gitlab.com/rlcintra/pomobar/tags][tag page]] or you can install it using Stack by issuing `stack install` from the repository directory.
+
+*** Configuring Xmobar
+
+Pomobar can be used in Xmobar through =CommandReader= as demonstrated in the following example.
+
+#+BEGIN_SRC 
+        -- Pomobar
+        , Run CommandReader "killall pomobar; ~/.local/bin/pomobar --terminatedShellCmd='mpg123 -q ~/bin/share/alarmwatch.mp3'" "pomobar"
+#+END_SRC
+
+Using =killall pomobar= before starting Pomobar is a good idea since when restarting Xmonad previous =CommandReader= processes are not terminated. Leaving previous Pomobar processes running will cause conflicts in D-Bus, causing the new Pomobar instance to not respond to D-Bus commands.
+
+In the above example we also used the option =terminatedShellCmd= to play an alarm sound when the timer terminates. This option could also be used to display a visual notification for example. All the Pomobar options will be listed in a later section.
+
+Don't forget adding a =%pomobar%= to your Xmobar template.
+
+*** Configuring Xmonad
+
+In =xmonad.hs= add the hotkeys to control Pomobar. A configuration example is shown below.
+
+#+BEGIN_SRC haskell
+    -- Pomobar
+    , ((modm  , xK_F5      ), spawn "dbus-send --print-reply --dest=org.pomobar /org/pomobar org.Pomobar.startTimerSwitch array:int16:25,10,5")
+    , ((modm  , xK_F6      ), spawn "dbus-send --print-reply --dest=org.pomobar /org/pomobar org.Pomobar.pauseResumeTimer")
+    , ((modm  , xK_F7      ), spawn "dbus-send --print-reply --dest=org.pomobar /org/pomobar org.Pomobar.timerAddMin int16:1")
+    , ((modm  , xK_F8      ), spawn "dbus-send --print-reply --dest=org.pomobar /org/pomobar org.Pomobar.timerAddMin int16:-1")
+#+END_SRC
+
+** =pomobar= options
+
+Running =pomobar --help= displays all available command options:
+
+#+BEGIN_SRC 
+pomobar - A customisable pomodoro timer for Xmonad
+
+Usage: pomobar [--runningFgColour ARG] [--pausedFgColour ARG]
+               [--terminatingFgColour ARG] [--terminatedFg1Colour ARG]
+               [--terminatedBg1Colour ARG] [--terminatedFg2Colour ARG]
+               [--terminatedBg2Colour ARG] [--terminatedBlinkRate ARG]
+               [--terminatedShellCmd ARG]
+  Creates a pomodoro timer.
+
+Available options:
+  --runningFgColour ARG    FG running colour
+  --pausedFgColour ARG     FG paused colour
+  --terminatingFgColour ARG
+                           FG terminating colour
+  --terminatedFg1Colour ARG
+                           FG1 terminated colour
+  --terminatedBg1Colour ARG
+                           BG1 terminated colour
+  --terminatedFg2Colour ARG
+                           FG2 terminated colour
+  --terminatedBg2Colour ARG
+                           BG2 terminated colour
+  --terminatedBlinkRate ARG
+                           Terminated blink rate in nanoseconds
+  --terminatedShellCmd ARG Shell command to be executed and timer terminates
+  -h,--help                Show this help text
+#+END_SRC
+
+** D-Bus
+
+Pomobar provides the following D-Bus methods under the interface =org.Pomobar= available on the path =/org/Pomobar=:
+
+- startTime(Int16)
+Starts the timer for the given period (in minutes).
+- startTimerSwitch([Int16])
+Loops through the given periods (in minutes) to start the timer. This method is useful to utilise the same hotkey to start the timer for different periods. When pressing the hotkey in succession (less than 1 second between presses) it loops through the given timer periods.
+- pauseResumeTimer()
+It pauses or resumes the timer depending on its status.
+- timerAddMin(Int16)
+Adds minutes to timer, or subtracts if a negative number is provided.
+
+** Potential enhancements
+
+This is a list of potential enhancements that may be implemented in the future.
+
+- Make Pomobar a Xmobar plugin.
+- Add configuration to define D-Bus path. This would allow multiple timers running concurrently and being controlled by D-Bus without conflicting with each other.
+- Implement other stdout types to make Pomobar compatible with other status bars such as dzen.
