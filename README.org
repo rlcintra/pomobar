@@ -1,14 +1,14 @@
 * Pomobar
 
-Pomobar is a customisable pomodoro timer for Xmobar. It provides the following features:
+Pomobar is a pomodoro timer for Xmobar. It strives to be highly customisable, keyboard-centric, lightweight and minimalist. Although it was designed for being used with the [[https://en.wikipedia.org/wiki/Pomodoro_Technique][Pomodoro Technique]], it can also be used as a generic timer. It provides the following features:
 
 - Timer control over D-Bus
 - Colour customisation
-- Optional shell command execution on timer termination
+- Shell command execution on timer termination
 
 ** Building
 
-Pomobar is built by using Stack. After cloning the repository, run `stack build`.
+Pomobar is built by using Stack. After cloning the repository, run =stack setup= and then =stack build=.
 
 ** Installing
 
@@ -56,40 +56,34 @@ Usage: pomobar [--runningFgColour ARG] [--pausedFgColour ARG]
   Creates a pomodoro timer.
 
 Available options:
-  --runningFgColour ARG    FG running colour
-  --pausedFgColour ARG     FG paused colour
-  --terminatingFgColour ARG
-                           FG terminating colour
-  --terminatedFg1Colour ARG
-                           FG1 terminated colour
-  --terminatedBg1Colour ARG
-                           BG1 terminated colour
-  --terminatedFg2Colour ARG
-                           FG2 terminated colour
-  --terminatedBg2Colour ARG
-                           BG2 terminated colour
-  --terminatedBlinkRate ARG
-                           Terminated blink rate in nanoseconds
-  --terminatedShellCmd ARG Shell command to be executed and timer terminates
-  -h,--help                Show this help text
+  --runningFgColour ARG       FG running colour
+  --pausedFgColour ARG        FG paused colour
+  --terminatingFgColour ARG   FG terminating colour
+  --terminatedFg1Colour ARG   FG1 terminated colour
+  --terminatedBg1Colour ARG   BG1 terminated colour
+  --terminatedFg2Colour ARG   FG2 terminated colour
+  --terminatedBg2Colour ARG   BG2 terminated colour
+  --terminatedBlinkRate ARG   Terminated blink rate in nanoseconds
+  --terminatedShellCmd ARG    Shell command to be executed and timer terminates
+  -h,--help                   Show this help text
 #+END_SRC
 
 ** D-Bus
 
 Pomobar provides the following D-Bus methods under the interface =org.Pomobar= available on the path =/org/Pomobar=:
 
-- startTime(Int16)
+- =startTime(Int16)=
 Starts the timer for the given period (in minutes).
-- startTimerSwitch([Int16])
+- =startTimerSwitch([Int16])=
 Loops through the given periods (in minutes) to start the timer. This method is useful to utilise the same hotkey to start the timer for different periods. When pressing the hotkey in succession (less than 1 second between presses) it loops through the given timer periods.
-- pauseResumeTimer()
+- =pauseResumeTimer()=
 It pauses or resumes the timer depending on its status.
-- timerAddMin(Int16)
+- =timerAddMin(Int16)=
 Adds minutes to timer, or subtracts if a negative number is provided.
 
 ** Potential enhancements
 
-This is a list of potential enhancements that may be implemented in the future.
+This is a list of potential enhancements that may be implemented in the future:
 
 - Make Pomobar a Xmobar plugin.
 - Add configuration to define D-Bus path. This would allow multiple timers running concurrently and being controlled by D-Bus without conflicting with each other.
