@@ -12,7 +12,7 @@ Pomobar is built by using Stack. After cloning the repository, run =stack setup=
 
 ** Installing
 
-You can download the binary straight from the GitLab [[https://gitlab.com/rlcintra/pomobar/tags][tag page]] or you can install it using Stack by issuing `stack install` from the repository directory.
+You can download the binary straight from the GitHub [[https://github.com/rlcintra/pomobar/releases][releases page]] or you can install it using Stack by issuing `stack install` from the repository directory.
 
 *** Configuring Xmobar
 
