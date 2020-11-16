@@ -72,7 +72,7 @@ Available options:
 
 Pomobar provides the following D-Bus methods under the interface =org.Pomobar= available on the path =/org/Pomobar=:
 
-- =startTime(Int16)=
+- =startTimer(Int16)=
 Starts the timer for the given period (in minutes).
 - =startTimerSwitch([Int16])=
 Loops through the given periods (in minutes) to start the timer. This method is useful to utilise the same hotkey to start the timer for different periods. When pressing the hotkey in succession (less than 1 second between presses) it loops through the given timer periods.
