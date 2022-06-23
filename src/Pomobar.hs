@@ -39,6 +39,7 @@ data TimerConfig = TimerConfig {
   terminatedFg2Colour :: Maybe Colour,
   terminatedBg2Colour :: Maybe Colour,
   terminatedBgDelay   :: Maybe Int,
+  startedShellCmd  :: Maybe String,
   terminatedShellCmd  :: Maybe String
 }
 
@@ -53,14 +54,19 @@ defaultTimerConfig = TimerConfig
                        (Just "yellow")
                        (Just 500000)         -- 0.5 seconds
                        Nothing
+                       Nothing
 
 initialise :: TimerConfig -> IO ()
 initialise timerConfig = do
   hSetBuffering stdout LineBuffering
   timer <- newTimer timerConfig
   startDBus timer
-  putStrLn "Pb"
+  putStrLn "<fc=#51afef><fn=2>P</fn></fc>"
   waitForever
+
+executeCmd :: Maybe String -> IO ()
+executeCmd Nothing    = return ()
+executeCmd (Just cmd) = spawnCommand cmd >> return ()
 
 newTimer :: TimerConfig -> IO Timer
 newTimer timerConfig = do
@@ -70,12 +76,13 @@ newTimer timerConfig = do
   return $ Timer state timerConfig
 
 startTimer :: Timer -> Int -> IO ()
-startTimer timer@(Timer mvarState _) dur = do
+startTimer timer@(Timer mvarState timerConfig) dur = do
   state <- takeMVar mvarState
   tryTakeMVar (refreshThread state) >>= tryKillThread
   rtID <- forkIO $ timerRefreshThread timer
   putMVar (refreshThread state) rtID
   now <- getCurrentTime
+  executeCmd $ startedShellCmd timerConfig
   putMVar mvarState $ TimerState Running (fromIntegral dur) now (refreshThread state)
   where tryKillThread (Just threadId) = killThread threadId
         tryKillThread Nothing = return ()
@@ -136,8 +143,7 @@ terminateTimer (Timer mvarState timerConfig) = do
           threadDelay $ delay $ terminatedBgDelay timerConfig
         delay Nothing  = 0
         delay (Just x) = x
-        executeCmd Nothing    = return ()
-        executeCmd (Just cmd) = spawnCommand cmd >> return ()
+
 
 timerRefreshThread :: Timer -> IO ()
 timerRefreshThread timer@(Timer mvarState timerConfig) = do
@@ -147,19 +153,19 @@ timerRefreshThread timer@(Timer mvarState timerConfig) = do
   if durDiff <= 0
     then terminateTimer timer
     else do putStrLn $ formatOutput durDiff (status state) timerConfig
-            threadDelay $ delay durDiff
+            threadDelay $ 1000000
             timerRefreshThread timer
-            where delay durDiff
-                    | durDiff <= 60 = 1000000
-                    | otherwise     = ((durDiff `rem` 60) + 1) * 1000000
 
 formatOutput :: Int -> TimerStatus -> TimerConfig -> String
-formatOutput x s c = xmobarString (printf "%02d" number) (fgColour s) (bgColour s) where
-  number :: Int
-  number
-    | x >= 60   = floor (fromIntegral x / 60)
-    | x < 0     = 0
-    | otherwise = x
+formatOutput x s c = xmobarString (printf "%02d" mins ++ ":" ++ printf "%02d" secs) (fgColour s) (bgColour s) where
+  mins :: Int
+  mins
+    | x > 60    = floor (fromIntegral x / 60)
+    | otherwise = 0
+  secs :: Int
+  secs
+    | x > 0     = x `mod` 60
+    | otherwise = 0
   fgColour Paused = pausedFgColour c
   fgColour Running
     | x >= 60   = runningFgColour c

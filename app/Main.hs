@@ -30,9 +30,12 @@ parseColours = TimerConfig
              <*> option auto (long "terminatedBlinkRate"
                                    <> (value $ terminatedBgDelay defaultTimerConfig)
                                    <> help "Terminated blink rate in nanoseconds")
+             <*> option sReader (long "startedShellCmd"
+                                   <> (value $ startedShellCmd defaultTimerConfig)
+                                   <> help "Shell command to be executed when timer terminates")
              <*> option sReader (long "terminatedShellCmd"
                                    <> (value $ terminatedShellCmd defaultTimerConfig)
-                                   <> help "Shell command to be executed and timer terminates")
+                                   <> help "Shell command to be executed when timer starts")
              where cReader = eitherReader (\s -> if s == "" then Right Nothing else Right (Just s))
                    sReader = eitherReader (\s -> if s == "" then Right Nothing else Right (Just s))
 
